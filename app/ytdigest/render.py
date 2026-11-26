@@ -85,6 +85,8 @@ def render_email(
             tag = '<span class="tag">短视频</span>'
         if item.get("transcribed"):
             tag += '<span class="tag tag-warn">自动转写</span>'
+        if item.get("video_read"):
+            tag += '<span class="tag">视频直读</span>'
         warn = ""
         if item.get("transcribed"):
             warn = (

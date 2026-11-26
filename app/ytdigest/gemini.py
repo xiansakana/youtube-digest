@@ -94,6 +94,18 @@ USER_TEMPLATE = """请按系统要求总结以下视频。
 """
 
 
+VIDEO_TEMPLATE = """请观看以下 YouTube 视频并按要求总结。
+
+标题：{title}
+频道：{channel}
+时长：{duration}
+发布日期：{published}
+视频链接：{url}
+
+要求：直接基于视频的画面与语音内容总结，保留具体数字、点位、百分比与时间戳；无法确认的信息请如实说明，不要编造。
+"""
+
+
 def _strip_fences(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
@@ -159,6 +171,82 @@ class Gemini:
         if not text:
             raise RuntimeError("Gemini 返回空内容")
         return _strip_fences(text)
+
+    def _call_video(self, model: str, prompt: str, video_url: str,
+                    max_tokens: int = 8192) -> str:
+        """把 YouTube 链接直接作为视频输入，让模型观看后总结。"""
+        url = ENDPOINT.format(model=model)
+        body = {
+            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [{"role": "user", "parts": [
+                {"file_data": {"file_uri": video_url}},
+                {"text": prompt},
+            ]}],
+            "generationConfig": {
+                "temperature": 0.4,
+                "topP": 0.9,
+                "maxOutputTokens": max_tokens,
+            },
+        }
+        resp = requests.post(
+            url,
+            params={"key": self.api_key},
+            json=body,
+            timeout=180,
+            headers={"Content-Type": "application/json"},
+        )
+        if resp.status_code != 200:
+            raise GeminiError(resp.status_code, resp.text)
+        data = resp.json()
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise GeminiError(0, f"无候选结果: {json.dumps(data)[:400]}")
+        parts = candidates[0].get("content", {}).get("parts", [])
+        texts = [
+            p.get("text", "")
+            for p in parts
+            if isinstance(p, dict) and not p.get("thought") and p.get("text")
+        ]
+        text = "\n".join(texts).strip()
+        if not text:
+            raise GeminiError(0, "视频摘要返回空内容")
+        return _strip_fences(text)
+
+    def summarize_video(self, meta: dict[str, Any], video_url: str) -> str:
+        """无字幕视频优先走这里：模型直接看视频，省去下载与本地转写。"""
+        prompt = VIDEO_TEMPLATE.format(
+            title=meta.get("title", ""),
+            channel=meta.get("channel", ""),
+            duration=meta.get("duration_text", ""),
+            published=meta.get("published_text", ""),
+            url=video_url,
+        )
+        last_err: Exception | None = None
+        for model in self.models:
+            if model in self._disabled:
+                continue
+            try:
+                result = self._call_video(model, prompt, video_url)
+                logger.info("    Gemini 视频直读使用 %s（%d 字）", model, len(result))
+                return result
+            except GeminiError as exc:
+                last_err = exc
+                if exc.status in (429, 402, 404):
+                    self._disabled.add(model)
+                    logger.warning(
+                        "    %s 额度/权限不可用（HTTP %s），今日跳过", model, exc.status
+                    )
+                    continue
+                if exc.status == 503:
+                    self._fail_count[model] += 1
+                    if self._fail_count[model] >= 2:
+                        self._disabled.add(model)
+                        logger.warning("    %s 连续 503，今日跳过", model)
+                    else:
+                        logger.warning("    %s 503，切换下一个模型", model)
+                    continue
+                raise
+        raise RuntimeError(f"视频直读失败（已尝试 {self.models}）: {last_err}")
 
     def summarize(self, meta: dict[str, Any], subtitle: str | None,
                   max_chars: int = 60000) -> str:

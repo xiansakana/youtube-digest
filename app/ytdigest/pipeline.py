@@ -274,11 +274,26 @@ def run(
                 subtitle, sub_status = fetch_subtitles(item["video_id"], cfg["subtitle_langs"])
             if subtitle:
                 logger.info("    字幕 %d 字", len(subtitle))
-            elif sub_status == "none" and cfg.get("enable_transcribe"):
-                logger.info(
-                    "    确认无字幕，启动本地语音转写（%s）…",
-                    cfg.get("transcribe_model", "small"),
-                )
+
+            # 无字幕：优先让 Gemini 直接看视频（快，省去下载与本地转写）
+            if not subtitle and sub_status == "none" and cfg.get("enable_video_summary", True):
+                limit_sec = int(cfg.get("video_summary_max_minutes", 120)) * 60
+                if meta["duration_seconds"] <= limit_sec:
+                    logger.info("    确认无字幕，尝试 Gemini 视频直读…")
+                    try:
+                        summary_html = gemini.summarize_video(meta, meta["url"])
+                        processed.append(
+                            {**item, "summary_html": summary_html, "video_read": True}
+                        )
+                        continue
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("    视频直读失败：%s，改用 whisper 兜底", exc)
+                else:
+                    logger.info("    视频较长（%s），跳过直读", meta["duration_text"])
+
+            # whisper 兜底
+            if not subtitle and sub_status == "none" and cfg.get("enable_transcribe"):
+                logger.info("    启动本地语音转写（%s）…", cfg.get("transcribe_model", "small"))
                 try:
                     subtitle = transcribe_video(
                         item["video_id"],
@@ -296,11 +311,11 @@ def run(
                 else:
                     missing_subs += 1
                     logger.info("    转写未产出，改用标题+简介")
-            else:
+            elif not subtitle:
                 missing_subs += 1
                 if sub_status == "error":
                     logger.info("    字幕抓取失败，改用标题+简介")
-                else:
+                elif sub_status != "disabled":
                     logger.info("    无字幕，改用标题+简介")
 
             try:

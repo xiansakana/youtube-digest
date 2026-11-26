@@ -54,6 +54,9 @@ DEFAULTS: dict[str, Any] = {
     "transcribe_model": "small",
     "transcribe_language": "zh",
     "transcribe_max_minutes": 90,
+    # 无字幕时优先让 Gemini 直接读视频（快，但 token 消耗大）
+    "enable_video_summary": True,
+    "video_summary_max_minutes": 120,
 }
 
 SECRET_KEYS = (
@@ -93,6 +96,8 @@ ENV_MAP: list[tuple[str, str, Any]] = [
     ("TRANSCRIBE_MODEL", "transcribe_model", str),
     ("TRANSCRIBE_LANGUAGE", "transcribe_language", str),
     ("TRANSCRIBE_MAX_MINUTES", "transcribe_max_minutes", int),
+    ("ENABLE_VIDEO_SUMMARY", "enable_video_summary", _as_bool),
+    ("VIDEO_SUMMARY_MAX_MINUTES", "video_summary_max_minutes", int),
 ]
 
 
