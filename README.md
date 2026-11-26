@@ -65,7 +65,7 @@ Desktop 类型无需登记回调地址，本项目的回调固定为 `http://loc
 ## 快速开始（Docker）
 
 ```bash
-git clone https://github.com/<your-name>/youtube-digest.git
+git clone https://github.com/xiansakana/youtube-digest.git
 cd youtube-digest
 cp .env.example .env
 mkdir -p data
