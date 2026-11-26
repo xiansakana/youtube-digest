@@ -49,6 +49,11 @@ DEFAULTS: dict[str, Any] = {
     "state_retention_days": 120,
     # 是否包含正在直播的视频
     "include_live_now": False,
+    # 无字幕时是否本地语音转写（faster-whisper）
+    "enable_transcribe": True,
+    "transcribe_model": "small",
+    "transcribe_language": "zh",
+    "transcribe_max_minutes": 90,
 }
 
 SECRET_KEYS = (
@@ -84,6 +89,10 @@ ENV_MAP: list[tuple[str, str, Any]] = [
     ("SEND_WHEN_EMPTY", "send_when_empty", _as_bool),
     ("STATE_RETENTION_DAYS", "state_retention_days", int),
     ("INCLUDE_LIVE_NOW", "include_live_now", _as_bool),
+    ("ENABLE_TRANSCRIBE", "enable_transcribe", _as_bool),
+    ("TRANSCRIBE_MODEL", "transcribe_model", str),
+    ("TRANSCRIBE_LANGUAGE", "transcribe_language", str),
+    ("TRANSCRIBE_MAX_MINUTES", "transcribe_max_minutes", int),
 ]
 
 

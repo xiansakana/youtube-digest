@@ -23,6 +23,7 @@ from .render import render_email, render_plain
 from .rss import fetch_channel_rss
 from .store import already_sent, load_quota, mark_sent, prune, save_quota
 from .subtitles import fetch_subtitles, subtitle_available
+from .transcribe import transcribe_video
 from .youtube import TokenManager, YouTube, parse_duration_seconds, parse_rfc3339
 
 
@@ -267,13 +268,40 @@ def run(
             meta = item["meta"]
             logger.info("[%d/%d] 处理 %s | %s", idx, len(items), meta["channel"], meta["title"][:60])
             subtitle = None
+            transcribed = False
+            sub_status = "disabled"
             if have_ytdlp:
-                subtitle = fetch_subtitles(item["video_id"], cfg["subtitle_langs"])
+                subtitle, sub_status = fetch_subtitles(item["video_id"], cfg["subtitle_langs"])
             if subtitle:
                 logger.info("    字幕 %d 字", len(subtitle))
+            elif sub_status == "none" and cfg.get("enable_transcribe"):
+                logger.info(
+                    "    确认无字幕，启动本地语音转写（%s）…",
+                    cfg.get("transcribe_model", "small"),
+                )
+                try:
+                    subtitle = transcribe_video(
+                        item["video_id"],
+                        model_size=cfg.get("transcribe_model", "small"),
+                        language=cfg.get("transcribe_language", "zh"),
+                        max_minutes=cfg.get("transcribe_max_minutes", 90),
+                        max_chars=cfg.get("subtitle_max_chars", 60000),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("    转写失败: %s", exc)
+                    subtitle = None
+                if subtitle:
+                    transcribed = True
+                    logger.info("    转写完成 %d 字", len(subtitle))
+                else:
+                    missing_subs += 1
+                    logger.info("    转写未产出，改用标题+简介")
             else:
                 missing_subs += 1
-                logger.info("    无字幕，改用标题+简介")
+                if sub_status == "error":
+                    logger.info("    字幕抓取失败，改用标题+简介")
+                else:
+                    logger.info("    无字幕，改用标题+简介")
 
             try:
                 summary_html = gemini.summarize(meta, subtitle, cfg["subtitle_max_chars"])
@@ -283,7 +311,7 @@ def run(
                 failed.append(item)
                 continue
 
-            processed.append({**item, "summary_html": summary_html})
+            processed.append({**item, "summary_html": summary_html, "transcribed": transcribed})
             try:
                 WORK_DIR.mkdir(parents=True, exist_ok=True)
                 (WORK_DIR / f"{today_label()}-{item['video_id']}.html").write_text(

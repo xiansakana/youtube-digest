@@ -37,6 +37,9 @@ STYLE = """
   .footer{text-align:center;color:#94a3b8;font-size:12px;line-height:1.9;margin-top:10px}
   .tag{display:inline-block;background:#eef2ff;color:#4338ca;border-radius:999px;
        padding:1px 9px;font-size:11.5px;margin-right:6px}
+  .tag-warn{background:#fef3c7;color:#92400e}
+  .vg-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;
+           padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px}
   .empty{background:#fff;border-radius:12px;padding:34px 24px;text-align:center;color:#64748b;
          border:1px solid #e5e9f0}
 </style>
@@ -80,8 +83,16 @@ def render_email(
             tag = '<span class="tag">直播回放</span>'
         elif item.get("is_short"):
             tag = '<span class="tag">短视频</span>'
+        if item.get("transcribed"):
+            tag += '<span class="tag tag-warn">自动转写</span>'
+        warn = ""
+        if item.get("transcribed"):
+            warn = (
+                '<div class="vg-warn">⚠️ 本视频没有字幕，以下内容由本地语音转写生成，'
+                "数字、点位与专有名词可能有误，请以原视频为准。</div>"
+            )
         blocks.append(
-            f'<div class="card">{tag}{body}</div>'
+            f'<div class="card">{tag}{warn}{body}</div>'
         )
 
     if not items:

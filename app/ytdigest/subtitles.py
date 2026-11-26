@@ -98,8 +98,12 @@ def _find_vtt(workdir: Path) -> Path | None:
 
 
 def fetch_subtitles(video_id: str, langs: str = "zh-Hans,zh-Hant,zh,en",
-                    timeout: int = 240) -> str | None:
-    """返回字幕纯文本；无字幕或失败返回 None。"""
+                    timeout: int = 240) -> tuple[str | None, str]:
+    """返回 (字幕文本, 状态)。
+
+    状态：ok=有字幕；none=确认该视频没有字幕；error=抓取失败（网络/风控等）。
+    只有 none 才适合触发本地语音转写。
+    """
     url = f"https://www.youtube.com/watch?v={video_id}"
     proxy = _detect_proxy()
     attempts: list[list[str]] = [
@@ -147,11 +151,11 @@ def fetch_subtitles(video_id: str, langs: str = "zh-Hans,zh-Hant,zh,en",
             if vtt is not None:
                 text = _clean_vtt(vtt.read_text(encoding="utf-8", errors="ignore"))
                 if len(text) > 40:
-                    return text
+                    return text, "ok"
             if proc.returncode == 0:
                 # 成功但没字幕文件，说明该视频确实没有字幕，不必再换 client
-                return None
-    return None
+                return None, "none"
+    return None, "error"
 
 
 def subtitle_available() -> bool:

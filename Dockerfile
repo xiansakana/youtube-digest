@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ffmpeg curl unzip ca-certificates tzdata \
+        ffmpeg curl unzip ca-certificates tzdata libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # yt-dlp 解析 YouTube 的 JS challenge 需要 Deno

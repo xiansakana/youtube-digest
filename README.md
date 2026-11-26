@@ -169,6 +169,11 @@ docker compose run --rm digest python run.py --days 7
 | `SEND_HOUR` / `SEND_MINUTE` | 12 / 0 | 每天执行时刻 |
 | `RUN_ON_START` | false | 容器启动立即跑一次 |
 | `YOUTUBE_PROXY` | 空 | 抓字幕用的代理（见下节） |
+| `ENABLE_TRANSCRIBE` | true | 无字幕时是否本地语音转写 |
+| `TRANSCRIBE_MODEL` | small | faster-whisper 模型（tiny/base/small/medium） |
+| `TRANSCRIBE_LANGUAGE` | zh | 转写语言 |
+| `TRANSCRIBE_MAX_MINUTES` | 90 | 超过该时长的视频跳过转写 |
+| `WHISPER_MODEL_DIR` | /data/models/whisper | 模型缓存目录（挂载卷） |
 
 也可以把配置写进 `data/config.json`，环境变量优先级更高。
 
@@ -215,6 +220,24 @@ YouTube 会直接拒绝云厂商 IP（AWS / GCP / Azure）的字幕请求，表�
 - 也可以把浏览器导出的 cookies 放到 `data/cookies.txt`（Netscape 格式），程序会自动带上
 
 没有代理时任务不会失败，只是无字幕的视频会退回标题+简介。
+
+## 无字幕自动转写（默认开启）
+
+只有**确认视频确实没有字幕**时才会触发；有字幕的视频完全不会多跑一步。
+
+流程：
+
+1. yt-dlp 下载音频并转成 16k 单声道 wav
+2. faster-whisper（默认 `small`，CPU int8）本地转写
+3. 转写文本作为摘要输入，邮件卡片顶部会标注「自动转写，数字可能有误」
+
+要点：
+
+- 模型文件放在 `data/models/whisper`（挂载卷内），**首次使用时自动下载，不打进镜像**
+- 超长视频默认跳过（`TRANSCRIBE_MAX_MINUTES=90`）
+- 40 分钟视频在 4 核 CPU 上大约 5–15 分钟；`tiny/base` 更快，`medium` 更准
+- 抓字幕失败（网络/风控）不会触发转写，只有「明确没有字幕」才会
+- 关闭：`ENABLE_TRANSCRIBE=false`
 
 ## 数据目录
 
