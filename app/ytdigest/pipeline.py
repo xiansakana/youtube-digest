@@ -256,6 +256,8 @@ def run(
         gemini_models,
         disabled=quota_disabled,
         video_interval=cfg.get("video_request_interval_seconds", 60),
+        text_503_threshold=cfg.get("text_503_threshold", 3),
+        video_503_threshold=cfg.get("video_503_threshold", 2),
     )
     if quota_disabled:
         logger.info("今日已耗尽额度的模型（直接跳过）: %s", ", ".join(sorted(quota_disabled)))
@@ -266,6 +268,7 @@ def run(
 
     processed: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
     missing_subs = 0
     try:
         for idx, item in enumerate(items, 1):
@@ -291,15 +294,39 @@ def run(
                         continue
                     except Exception as exc:  # noqa: BLE001
                         logger.warning("    视频直读失败：%s，退回标题+简介", exc)
+                        issues.append({
+                            **meta,
+                            "reason": f"视频直读失败（{str(exc)[:80]}），已降级",
+                            "degraded": True,
+                            "will_retry": False,
+                        })
                 else:
                     logger.info("    视频较长（%s），跳过直读", meta["duration_text"])
+                    issues.append({
+                        **meta,
+                        "reason": f"视频过长（{meta['duration_text']}），跳过直读",
+                        "degraded": True,
+                        "will_retry": False,
+                    })
 
             if not subtitle:
                 missing_subs += 1
                 if sub_status == "error":
                     logger.info("    字幕抓取失败，改用标题+简介")
+                    issues.append({
+                        **meta,
+                        "reason": "字幕抓取失败（网络或风控），已降级",
+                        "degraded": True,
+                        "will_retry": False,
+                    })
                 elif sub_status == "none":
                     logger.info("    无字幕，改用标题+简介")
+                    issues.append({
+                        **meta,
+                        "reason": "无字幕且未启用视频直读，已降级",
+                        "degraded": True,
+                        "will_retry": False,
+                    })
 
             try:
                 summary_html = gemini.summarize(meta, subtitle, cfg["subtitle_max_chars"])
@@ -307,6 +334,12 @@ def run(
                 # 不生成占位、不标记已发送，留待下一次重试，确保不漏
                 logger.error("    总结失败，保留待下次重试: %s", exc)
                 failed.append(item)
+                issues.append({
+                    **meta,
+                    "reason": f"Gemini 全部模型不可用（{str(exc)[:80]}）",
+                    "degraded": False,
+                    "will_retry": True,
+                })
                 continue
 
             processed.append({**item, "summary_html": summary_html})
@@ -336,7 +369,7 @@ def run(
     batches = [processed[i : i + batch_size] for i in range(0, len(processed), batch_size)]
 
     if dry_run:
-        html = render_email(processed, today_label(), started, missing_subs)
+        html = render_email(processed, today_label(), started, missing_subs, issues=issues)
         out = WORK_DIR / f"preview-{today_label()}.html"
         WORK_DIR.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
@@ -349,7 +382,7 @@ def run(
         return 0
 
     for b_idx, batch in enumerate(batches, 1):
-        html = render_email(batch, today_label(), started, missing_subs)
+        html = render_email(batch, today_label(), started, missing_subs, issues=issues)
         plain = render_plain(batch, today_label())
         suffix = f"（{b_idx}/{len(batches)}）" if len(batches) > 1 else ""
         _send(env, cfg, html, plain, len(batch), logger, dry_run, suffix)

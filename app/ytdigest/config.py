@@ -54,6 +54,9 @@ DEFAULTS: dict[str, Any] = {
     "video_summary_max_minutes": 120,
     # 视频直读请求之间的最小间隔（秒），避免 5 万 token 级别的请求撞 TPM
     "video_request_interval_seconds": 60,
+    # 503 熔断阈值：文本请求失败代价低，视频请求单次可能要等几十秒
+    "text_503_threshold": 3,
+    "video_503_threshold": 2,
 }
 
 SECRET_KEYS = (
@@ -92,6 +95,8 @@ ENV_MAP: list[tuple[str, str, Any]] = [
     ("ENABLE_VIDEO_SUMMARY", "enable_video_summary", _as_bool),
     ("VIDEO_SUMMARY_MAX_MINUTES", "video_summary_max_minutes", int),
     ("VIDEO_REQUEST_INTERVAL_SECONDS", "video_request_interval_seconds", int),
+    ("TEXT_503_THRESHOLD", "text_503_threshold", int),
+    ("VIDEO_503_THRESHOLD", "video_503_threshold", int),
 ]
 
 

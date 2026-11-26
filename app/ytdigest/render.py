@@ -37,6 +37,15 @@ STYLE = """
   .footer{text-align:center;color:#94a3b8;font-size:12px;line-height:1.9;margin-top:10px}
   .tag{display:inline-block;background:#eef2ff;color:#4338ca;border-radius:999px;
        padding:1px 9px;font-size:11.5px;margin-right:6px}
+  .issue{background:#fff5f5;border:2px solid #fca5a5;border-radius:12px;
+         padding:16px 18px;margin-bottom:18px}
+  .issue h2{margin:0 0 10px;font-size:15px;color:#b91c1c;display:flex;align-items:center;gap:8px}
+  .issue table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .issue th{background:#fee2e2;color:#991b1b;text-align:left;padding:6px 8px;border:1px solid #fca5a5}
+  .issue td{padding:6px 8px;border:1px solid #fecaca;vertical-align:top;line-height:1.6;background:#fff}
+  .issue a{color:#b91c1c}
+  .issue .retry{color:#b45309;font-weight:600;white-space:nowrap}
+  .issue .drop{color:#6b7280;white-space:nowrap}
   .empty{background:#fff;border-radius:12px;padding:34px 24px;text-align:center;color:#64748b;
          border:1px solid #e5e9f0}
 </style>
@@ -66,11 +75,38 @@ def _enhance(fragment: str) -> str:
     return fragment
 
 
+def _render_issues(issues: list[dict[str, Any]] | None) -> str:
+    if not issues:
+        return ""
+    rows = []
+    for item in issues:
+        title = html_mod.escape(item.get("title", ""))
+        channel = html_mod.escape(item.get("channel", ""))
+        url = html_mod.escape(item.get("url", ""))
+        reason = html_mod.escape(item.get("reason", ""))
+        if item.get("degraded"):
+            status = '<span class="drop">已降级为标题+简介 · 下次不再重试</span>'
+        else:
+            status = '<span class="retry">未包含在本次邮件 · 下次自动重试</span>'
+        rows.append(
+            f"<tr><td>{channel}</td>"
+            f'<td><a href="{url}">{title}</a></td>'
+            f"<td>{reason}</td><td>{status}</td></tr>"
+        )
+    return (
+        '<div class="issue">'
+        f"<h2>⚠️ 本期有 {len(issues)} 条未完整处理</h2>"
+        "<table><thead><tr><th>频道</th><th>视频</th><th>原因</th><th>后续</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
 def render_email(
     items: list[dict[str, Any]],
     date_label: str,
     generated_at: datetime,
     subtitle_missing: int = 0,
+    issues: list[dict[str, Any]] | None = None,
 ) -> str:
     blocks: list[str] = []
     for idx, item in enumerate(items, 1):
@@ -110,6 +146,7 @@ def render_email(
     <div class="hint">{html_mod.escape(date_label)} · 过去 24 小时更新</div>
     {stats}
   </div>
+  {_render_issues(issues)}
   {body_html}
   <div class="footer">
     由 YouTube Data API + yt-dlp + Gemini 自动生成<br>

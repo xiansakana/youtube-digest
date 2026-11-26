@@ -122,6 +122,8 @@ class Gemini:
         models: list[str] | str = "gemini-3.5-flash-lite",
         disabled: set[str] | None = None,
         video_interval: float = 60.0,
+        text_503_threshold: int = 3,
+        video_503_threshold: int = 2,
     ) -> None:
         self.api_key = api_key
         if isinstance(models, str):
@@ -138,6 +140,9 @@ class Gemini:
         self._video_interval = max(0.0, float(video_interval))
         self._video_last = 0.0
         self._video_lock = threading.Lock()
+        # 503 连续失败多少次才熔断（429/402/404 始终首次即熔断）
+        self._text_503_threshold = max(1, int(text_503_threshold))
+        self._video_503_threshold = max(1, int(video_503_threshold))
 
     def _wait_video_slot(self) -> None:
         if self._video_interval <= 0:
@@ -260,11 +265,17 @@ class Gemini:
                     continue
                 if exc.status == 503:
                     self._fail_count[model] += 1
-                    if self._fail_count[model] >= 2:
+                    if self._fail_count[model] >= self._video_503_threshold:
                         self._disabled.add(model)
-                        logger.warning("    %s 连续 503，今日跳过", model)
+                        logger.warning(
+                            "    %s 连续 %d 次 503，今日跳过",
+                            model, self._fail_count[model],
+                        )
                     else:
-                        logger.warning("    %s 503，切换下一个模型", model)
+                        logger.warning(
+                            "    %s 503（%d/%d），切换下一个模型",
+                            model, self._fail_count[model], self._video_503_threshold,
+                        )
                     continue
                 raise
         raise RuntimeError(f"视频直读失败（已尝试 {self.models}）: {last_err}")
@@ -309,14 +320,17 @@ class Gemini:
                     # 503：临时高负载，连续 2 次才熔断
                     if exc.status == 503:
                         self._fail_count[model] += 1
-                        if self._fail_count[model] >= 2:
+                        if self._fail_count[model] >= self._text_503_threshold:
                             self._disabled.add(model)
                             logger.warning(
                                 "    %s 连续 %d 次 503，今日跳过",
                                 model, self._fail_count[model],
                             )
                         else:
-                            logger.warning("    %s 503，切换下一个模型", model)
+                            logger.warning(
+                                "    %s 503（%d/%d），切换下一个模型",
+                                model, self._fail_count[model], self._text_503_threshold,
+                            )
                         break
                     # 其他错误（网络异常/5xx）：最多重试 1 次，仍失败则跳档
                     if attempt == 0:
