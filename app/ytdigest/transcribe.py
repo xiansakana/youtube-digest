@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from .config import COOKIES_PATH
-from .subtitles import _detect_proxy
+from .subtitles import _detect_proxy, impersonate_args
 
 MODEL_DIR = Path(os.environ.get("WHISPER_MODEL_DIR", "/data/models/whisper"))
 _MODEL_CACHE: dict[str, object] = {}
@@ -39,7 +39,8 @@ def _download_audio(video_id: str, out_dir: Path, max_minutes: int,
         cmd += ["--cookies", str(COOKIES_PATH)]
     proxy = _detect_proxy()
     if proxy:
-        cmd += ["--proxy", proxy, "--impersonate", "chrome"]
+        cmd += ["--proxy", proxy]
+        cmd += impersonate_args()
     cmd.append(f"https://www.youtube.com/watch?v={video_id}")
     try:
         subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)

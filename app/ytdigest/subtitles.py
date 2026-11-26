@@ -25,6 +25,15 @@ def _port_open(port: int) -> bool:
         return False
 
 
+def impersonate_args(target: str = "chrome") -> list[str]:
+    """只有安装 curl_cffi 时才能用 --impersonate，否则自动省略。"""
+    try:
+        import curl_cffi  # noqa: F401
+    except ImportError:
+        return []
+    return ["--impersonate", target]
+
+
 def _detect_proxy() -> str | None:
     """优先级：YOUTUBE_PROXY > 系统 HTTPS_PROXY > 本地 WARP/隧道端口 > 直连。"""
     for key in ("YOUTUBE_PROXY", "YTDLP_PROXY", "HTTPS_PROXY", "https_proxy"):
@@ -138,7 +147,8 @@ def fetch_subtitles(video_id: str, langs: str = "zh-Hans,zh-Hant,zh,en",
             if COOKIES_PATH.exists():
                 cmd += ["--cookies", str(COOKIES_PATH)]
             if proxy:
-                cmd += ["--proxy", proxy, "--impersonate", "chrome"]
+                cmd += ["--proxy", proxy]
+                cmd += impersonate_args()
             cmd += extra
             cmd.append(url)
             try:
