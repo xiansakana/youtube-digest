@@ -54,9 +54,9 @@ DEFAULTS: dict[str, Any] = {
     "video_summary_max_minutes": 120,
     # 视频直读请求之间的最小间隔（秒），避免 5 万 token 级别的请求撞 TPM
     "video_request_interval_seconds": 60,
-    # 503 熔断阈值：文本请求失败代价低，视频请求单次可能要等几十秒
+    # 503 熔断阈值：连续 503 达到该次数后当日跳过该模型（429/402/404 仍首次即熔断）
     "text_503_threshold": 3,
-    "video_503_threshold": 2,
+    "video_503_threshold": 3,
 }
 
 SECRET_KEYS = (

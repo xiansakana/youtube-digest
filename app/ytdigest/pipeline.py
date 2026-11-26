@@ -257,7 +257,7 @@ def run(
         disabled=quota_disabled,
         video_interval=cfg.get("video_request_interval_seconds", 60),
         text_503_threshold=cfg.get("text_503_threshold", 3),
-        video_503_threshold=cfg.get("video_503_threshold", 2),
+        video_503_threshold=cfg.get("video_503_threshold", 3),
     )
     if quota_disabled:
         logger.info("今日已耗尽额度的模型（直接跳过）: %s", ", ".join(sorted(quota_disabled)))

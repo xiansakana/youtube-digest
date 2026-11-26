@@ -123,7 +123,7 @@ class Gemini:
         disabled: set[str] | None = None,
         video_interval: float = 60.0,
         text_503_threshold: int = 3,
-        video_503_threshold: int = 2,
+        video_503_threshold: int = 3,
     ) -> None:
         self.api_key = api_key
         if isinstance(models, str):

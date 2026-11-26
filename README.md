@@ -172,6 +172,8 @@ docker compose run --rm digest python run.py --days 7
 | `ENABLE_VIDEO_SUMMARY` | true | 无字幕时是否让 Gemini 直接读视频 |
 | `VIDEO_SUMMARY_MAX_MINUTES` | 120 | 超过该时长的视频不做直读 |
 | `VIDEO_REQUEST_INTERVAL_SECONDS` | 60 | 视频直读请求之间的最小间隔 |
+| `TEXT_503_THRESHOLD` | 3 | 文本请求连续 503 次数达到后熔断 |
+| `VIDEO_503_THRESHOLD` | 3 | 视频请求连续 503 次数达到后熔断 |
 
 也可以把配置写进 `data/config.json`，环境变量优先级更高。
 
