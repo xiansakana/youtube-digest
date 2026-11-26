@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YouTube 订阅摘要 · 授权控制台</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#e5e9f0;
+    --brand:#2563eb; --brand-dark:#1e40af; --ok:#059669; --warn:#d97706; --err:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased;font-size:14px}
+  .hero{background:linear-gradient(135deg,#111827,#1e3a8a 55%,#2563eb);color:#fff;padding:30px 0 34px}
+  .container{max-width:960px;margin:0 auto;padding:0 20px}
+  .hero h1{margin:0;font-size:21px;font-weight:700;letter-spacing:.3px}
+  .hero p{margin:7px 0 0;font-size:13px;opacity:.82;word-break:break-all}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .badge{background:rgba(255,255,255,.15);border-radius:999px;padding:5px 13px;font-size:12.5px;
+         display:flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#9ca3af}
+  .dot.on{background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.25)}
+  .dot.off{background:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.22)}
+  main{padding:24px 0 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:22px 24px;margin-bottom:18px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+  .card h2{margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:9px}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 16px;line-height:1.7}
+  .num{width:23px;height:23px;border-radius:50%;background:#eef2ff;color:#4338ca;
+       display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 auto}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid .full{grid-column:1/-1}
+  label{display:block;font-size:12.5px;font-weight:600;color:#374151;margin-bottom:6px}
+  input,textarea,select{width:100%;padding:9px 11px;border:1px solid #d5dbe5;border-radius:8px;
+        font-size:13.5px;font-family:inherit;background:#fbfcfe;color:var(--ink);outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--brand);background:#fff;
+        box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  textarea{resize:vertical;min-height:74px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.6}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  button{border:0;border-radius:9px;padding:9px 18px;font-size:13.5px;font-weight:600;
+         cursor:pointer;font-family:inherit;transition:.15s}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-primary:hover{background:var(--brand-dark)}
+  .btn-ghost{background:#fff;border:1px solid #d5dbe5;color:#374151}
+  .btn-ghost:hover{background:#f7f9fc}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .alert{border-radius:9px;padding:11px 14px;font-size:13px;margin-bottom:14px;display:none;line-height:1.6}
+  .alert.show{display:block}
+  .alert.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+  .alert.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  .alert.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+  .channels{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:14px}
+  .ch{display:flex;align-items:center;gap:11px;padding:9px 13px;border-bottom:1px solid #f1f4f9}
+  .ch:last-child{border-bottom:0}
+  .ch img{width:28px;height:28px;border-radius:50%;background:#eef2f7;flex:0 0 auto}
+  .ch .t{font-weight:600;font-size:13px}
+  .ch .d{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .muted{color:var(--muted)}
+  code{background:#f1f5f9;border-radius:5px;padding:1px 6px;font-size:12px;
+       font-family:ui-monospace,Menlo,Consolas,monospace}
+  pre{background:#0f172a;color:#cbd5e1;border-radius:10px;padding:14px 16px;overflow:auto;
+      font-size:12px;line-height:1.7;margin:12px 0 0}
+  .steps{margin:0;padding-left:20px;font-size:13px;line-height:1.9;color:#374151}
+  .steps li{margin-bottom:6px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="container">
+    <h1>YouTube 订阅每日摘要 · 授权控制台</h1>
+    <p>数据目录 {{DATA_DIR}}</p>
+    <div class="badges">
+      <span class="badge"><span id="dot-auth" class="dot"></span><span id="txt-auth">未授权</span></span>
+      <span class="badge"><span id="dot-cfg" class="dot"></span><span id="txt-cfg">配置未完成</span></span>
+      <span class="badge">回调：<span id="txt-redirect">{{REDIRECT_URI}}</span></span>
+    </div>
+  </div>
+</div>
+
+<main class="container">
+  <div id="alert" class="alert"></div>
+
+  <section class="card">
+    <h2><span class="num">1</span>Google OAuth 客户端</h2>
+    <p class="sub">
+      在 Google Cloud 创建一个 <b>Desktop app</b> 类型 OAuth 客户端（无需登记回调地址），
+      然后粘贴它下载的 <code>client_secret.json</code> 内容。
+    </p>
+    <div class="grid">
+      <div><label>Client ID</label><input id="client_id" placeholder="xxxx.apps.googleusercontent.com"></div>
+      <div><label>Client Secret</label><input id="client_secret" placeholder="GOCSPX-..."></div>
+      <div class="full">
+        <label>或粘贴 client_secret.json</label>
+        <textarea id="client_json" placeholder='{"installed":{"client_id":"...","client_secret":"..."}}'></textarea>
+        <div class="row">
+          <button class="btn-ghost" onclick="importClient()">解析并导入</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn-primary" onclick="startAuth()">开始 Google 授权</button>
+      <span class="hint" style="margin:0">授权成功后会写入 <code>token.json</code></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">2</span>当前账号的订阅频道</h2>
+    <p class="sub">授权后读取，仅用于确认登录的是正确账号，不需要手动勾选。</p>
+    <div class="row">
+      <button class="btn-ghost" onclick="loadSubs()">读取订阅列表</button>
+      <span class="hint" style="margin:0" id="subs-meta">尚未读取</span>
+    </div>
+    <div id="channels" class="channels" style="display:none"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">3</span>摘要与投递配置</h2>
+    <p class="sub">保存后会写入 <code>.env</code> 与 <code>config.json</code>，Docker 启动时自动读取。</p>
+    <div class="grid">
+      <div class="full">
+        <label>收件邮箱（多个用英文逗号分隔）</label>
+        <input id="recipients" placeholder="you@example.com, other@example.com">
+      </div>
+      <div><label>发件 Gmail 账号</label><input id="gmail_user" placeholder="sender@gmail.com"></div>
+      <div><label>Gmail 应用专用密码</label><input id="gmail_app_password" type="password" placeholder="16 位应用专用密码"></div>
+      <div class="full"><label>Gemini API Key</label><input id="gemini_api_key" type="password" placeholder="AIza... 或 AQ...."></div>
+      <div><label>主模型</label>
+        <select id="gemini_model">
+          <option value="gemini-4-hydrogen">gemini-4-hydrogen（最强，免费层有日额度限制）</option>
+          <option value="gemini-3-flash-preview">gemini-3-flash-preview（次强且稳定）</option>
+          <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite（最稳，兜底）</option>
+        </select>
+      </div>
+      <div><label>邮件显示名</label><input id="sender_name" placeholder="YouTube 每日摘要"></div>
+      <div class="full"><label>YouTube 抓取代理（可选）</label>
+        <input id="youtube_proxy" placeholder="例如 socks5h://127.0.0.1:40000 或 http://127.0.0.1:7890">
+        <div class="hint">云服务器 IP 常被 YouTube 拒绝取字幕，建议配一个非云 IP 的出站代理。</div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn-primary" onclick="saveConfig()">保存配置</button>
+      <button class="btn-ghost" onclick="testMail(this)">发送测试邮件</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">4</span>下一步：启动每日任务</h2>
+    <p class="sub">授权和配置都完成后，在项目根目录执行：</p>
+    <pre>docker compose up -d --build</pre>
+    <ul class="steps">
+      <li>容器默认每天 <b>Asia/Shanghai 12:00</b> 自动运行一次。</li>
+      <li>想先验证：<code>docker compose run --rm digest python run.py --dry-run --days 3 --limit 3</code></li>
+      <li>想立即跑一次真实任务：<code>docker compose run --rm digest python run.py --days 1</code></li>
+      <li>日志：<code>docker compose logs -f digest</code>，或查看 <code>data/logs/</code></li>
+    </ul>
+  </section>
+
+  <p class="hint" style="text-align:center;margin-top:26px">
+    控制台只监听 127.0.0.1，不会暴露到公网
+  </p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const TEXT_FIELDS = ["client_id","client_secret","recipients","gmail_user","gemini_model","sender_name","youtube_proxy"];
+
+function alertBox(msg, type){
+  const el = $("alert");
+  el.className = "alert show " + (type || "warn");
+  el.textContent = msg;
+}
+function hideAlert(){ $("alert").className = "alert"; }
+
+async function refreshStatus(){
+  try{
+    const s = await (await fetch("/api/status")).json();
+    $("dot-auth").className = "dot" + (s.authorized ? " on" : " off");
+    $("txt-auth").textContent = s.authorized ? "已授权" : "未授权";
+    const ok = s.has_client && s.recipients && s.gmail_user && s.has_gmail_pass && s.has_gemini_key;
+    $("dot-cfg").className = "dot" + (ok ? " on" : " off");
+    $("txt-cfg").textContent = ok ? "配置完成" : "配置未完成";
+    for (const k of TEXT_FIELDS){
+      if (!$(k).value && s[k]) $(k).value = s[k];
+    }
+    if (!$("sender_name").value) $("sender_name").value = "YouTube 每日摘要";
+    if (!$("gemini_model").value) $("gemini_model").value = s.gemini_model || "gemini-4-hydrogen";
+  }catch(e){ console.error(e); }
+}
+
+async function importClient(){
+  const raw = $("client_json").value.trim();
+  if (!raw){ alertBox("请先粘贴 client_secret.json 内容", "warn"); return; }
+  const d = await (await fetch("/api/import-client", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({json: raw})
+  })).json();
+  if (!d.ok){ alertBox("导入失败：" + d.error, "err"); return; }
+  $("client_id").value = d.client_id;
+  alertBox("客户端已导入，可以点“开始 Google 授权”", "ok");
+  refreshStatus();
+}
+
+function payload(){
+  const o = {};
+  for (const k of TEXT_FIELDS) o[k] = ($(k).value || "").trim();
+  o.gmail_app_password = $("gmail_app_password").value.trim();
+  o.gemini_api_key = $("gemini_api_key").value.trim();
+  return o;
+}
+
+async function saveConfig(silent){
+  const d = await (await fetch("/api/config", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload())
+  })).json();
+  if (!silent){
+    if (d.ok) alertBox("配置已保存到 " + d.env_path, "ok");
+    else alertBox("保存失败", "err");
+  }
+  refreshStatus();
+}
+
+async function startAuth(){
+  if (!$("client_id").value.trim() || !$("client_secret").value.trim()){
+    alertBox("请先填写或导入 Client ID / Client Secret", "warn"); return;
+  }
+  await saveConfig(true);
+  location.href = "/auth/start";
+}
+
+async function loadSubs(){
+  $("subs-meta").textContent = "读取中…";
+  const d = await (await fetch("/api/subscriptions")).json();
+  if (!d.ok){
+    $("subs-meta").textContent = "读取失败";
+    alertBox("读取订阅失败：" + d.error, "err");
+    return;
+  }
+  $("subs-meta").textContent = "共 " + d.count + " 个频道";
+  const box = $("channels");
+  box.style.display = "block";
+  box.innerHTML = d.items.map(c => `
+    <div class="ch">
+      ${c.thumbnail ? `<img src="${c.thumbnail}" alt="">` : `<img alt="">`}
+      <div style="min-width:0">
+        <div class="t">${escapeHtml(c.title)}</div>
+        <div class="d">${escapeHtml(c.description || c.channel_id)}</div>
+      </div>
+    </div>`).join("");
+  refreshStatus();
+}
+
+function escapeHtml(s){
+  return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function testMail(btn){
+  hideAlert();
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "发送中…";
+  try{
+    const d = await (await fetch("/api/test-mail", {method:"POST"})).json();
+    if (d.ok) alertBox("测试邮件已发送到：" + d.recipients.join(", "), "ok");
+    else alertBox("测试邮件失败：" + d.error, "err");
+  }catch(e){
+    alertBox("请求失败：" + e, "err");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+(function init(){
+  const q = new URLSearchParams(location.search);
+  if (q.get("authorized")) alertBox("Google 授权成功，token 已保存。正在加载订阅…", "ok");
+  if (q.get("error")) alertBox("授权失败：" + q.get("error"), "err");
+  refreshStatus().then(() => { if (q.get("authorized")) loadSubs(); });
+})();
+</script>
+</body>
+</html>

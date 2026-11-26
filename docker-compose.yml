@@ -1,0 +1,30 @@
+services:
+  digest:
+    build: .
+    image: youtube-digest:latest
+    container_name: youtube-digest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      YTDIGEST_HOME: /data
+      TIMEZONE: ${TIMEZONE:-Asia/Shanghai}
+      SEND_HOUR: ${SEND_HOUR:-12}
+      SEND_MINUTE: ${SEND_MINUTE:-0}
+    volumes:
+      - ./data:/data
+
+  # 本机授权用：docker compose --profile auth up auth
+  # 只监听 127.0.0.1:8765，浏览器中完成 Google 授权后 token 写入 ./data/token.json
+  auth:
+    build: .
+    image: youtube-digest:latest
+    profiles: ["auth"]
+    command: ["python", "/auth/auth_server.py"]
+    environment:
+      YTDIGEST_HOME: /data
+      AUTH_PORT: "8765"
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./data:/data
