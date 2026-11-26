@@ -59,6 +59,8 @@ DEFAULTS: dict[str, Any] = {
     "video_summary_max_minutes": 120,
     # 视频直读请求之间的最小间隔（秒），避免 5 万 token 级别的请求撞 TPM
     "video_request_interval_seconds": 60,
+    # 视频处理模式：static（默认，稳定）| agentic（官方省 token，免费层常不可用，失败自动降级）
+    "video_processing": "static",
 }
 
 SECRET_KEYS = (
@@ -101,6 +103,7 @@ ENV_MAP: list[tuple[str, str, Any]] = [
     ("ENABLE_VIDEO_SUMMARY", "enable_video_summary", _as_bool),
     ("VIDEO_SUMMARY_MAX_MINUTES", "video_summary_max_minutes", int),
     ("VIDEO_REQUEST_INTERVAL_SECONDS", "video_request_interval_seconds", int),
+    ("VIDEO_PROCESSING", "video_processing", str),
 ]
 
 

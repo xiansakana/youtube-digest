@@ -286,7 +286,9 @@ def run(
                 if meta["duration_seconds"] <= limit_sec:
                     logger.info("    确认无字幕，尝试 Gemini 视频直读…")
                     try:
-                        summary_html = gemini.summarize_video(meta, meta["url"])
+                        summary_html = gemini.summarize_video(
+                            meta, meta["url"], processing=cfg.get("video_processing", "static")
+                        )
                         processed.append(
                             {**item, "summary_html": summary_html, "video_read": True}
                         )
