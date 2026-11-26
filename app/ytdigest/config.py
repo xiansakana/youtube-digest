@@ -49,18 +49,11 @@ DEFAULTS: dict[str, Any] = {
     "state_retention_days": 120,
     # 是否包含正在直播的视频
     "include_live_now": False,
-    # 无字幕时是否本地语音转写（faster-whisper）
-    "enable_transcribe": True,
-    "transcribe_model": "small",
-    "transcribe_language": "zh",
-    "transcribe_max_minutes": 90,
-    # 无字幕时优先让 Gemini 直接读视频（快，但 token 消耗大）
+    # 无字幕时让 Gemini 直接读视频（快，但 token 消耗大）
     "enable_video_summary": True,
     "video_summary_max_minutes": 120,
     # 视频直读请求之间的最小间隔（秒），避免 5 万 token 级别的请求撞 TPM
     "video_request_interval_seconds": 60,
-    # 视频处理模式：static（默认，稳定）| agentic（官方省 token，免费层常不可用，失败自动降级）
-    "video_processing": "static",
 }
 
 SECRET_KEYS = (
@@ -96,14 +89,9 @@ ENV_MAP: list[tuple[str, str, Any]] = [
     ("SEND_WHEN_EMPTY", "send_when_empty", _as_bool),
     ("STATE_RETENTION_DAYS", "state_retention_days", int),
     ("INCLUDE_LIVE_NOW", "include_live_now", _as_bool),
-    ("ENABLE_TRANSCRIBE", "enable_transcribe", _as_bool),
-    ("TRANSCRIBE_MODEL", "transcribe_model", str),
-    ("TRANSCRIBE_LANGUAGE", "transcribe_language", str),
-    ("TRANSCRIBE_MAX_MINUTES", "transcribe_max_minutes", int),
     ("ENABLE_VIDEO_SUMMARY", "enable_video_summary", _as_bool),
     ("VIDEO_SUMMARY_MAX_MINUTES", "video_summary_max_minutes", int),
     ("VIDEO_REQUEST_INTERVAL_SECONDS", "video_request_interval_seconds", int),
-    ("VIDEO_PROCESSING", "video_processing", str),
 ]
 
 

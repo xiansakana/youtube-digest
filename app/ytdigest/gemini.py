@@ -193,21 +193,13 @@ class Gemini:
         return _strip_fences(text)
 
     def _call_video(self, model: str, prompt: str, video_url: str,
-                    max_tokens: int = 8192, agentic: bool = False) -> str:
-        """把 YouTube 链接直接作为视频输入，让模型观看后总结。
-
-        agentic=True 时启用官方 agentic 处理（media_processing=AGENTIC），
-        需要同时提供 mime_type；免费层常不可用，调用方会降级为 static。
-        """
+                    max_tokens: int = 8192) -> str:
+        """把 YouTube 链接直接作为视频输入，让模型观看后总结。"""
         url = ENDPOINT.format(model=model)
-        part: dict[str, Any] = {"file_data": {"file_uri": video_url}}
-        if agentic:
-            part["file_data"]["mime_type"] = "video/mp4"
-            part["media_processing"] = "AGENTIC"
         body = {
             "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
             "contents": [{"role": "user", "parts": [
-                part,
+                {"file_data": {"file_uri": video_url}},
                 {"text": prompt},
             ]}],
             "generationConfig": {
@@ -240,21 +232,8 @@ class Gemini:
             raise GeminiError(0, "视频摘要返回空内容")
         return _strip_fences(text)
 
-    def summarize_video(self, meta: dict[str, Any], video_url: str,
-                        processing: str = "static") -> str:
-        """无字幕视频优先走这里：模型直接看视频。
-
-        processing="agentic" 时先试官方 agentic 处理，失败自动降级 static。
-        """
-        if str(processing).lower() == "agentic":
-            try:
-                return self._summarize_video_once(meta, video_url, agentic=True)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("    agentic 模式失败（%s），降级为 static 视频直读", exc)
-        return self._summarize_video_once(meta, video_url, agentic=False)
-
-    def _summarize_video_once(self, meta: dict[str, Any], video_url: str,
-                              agentic: bool) -> str:
+    def summarize_video(self, meta: dict[str, Any], video_url: str) -> str:
+        """无字幕视频走这里：按模型顺序让 Gemini 直接看视频，全部失败由上层退回标题+简介。"""
         prompt = VIDEO_TEMPLATE.format(
             title=meta.get("title", ""),
             channel=meta.get("channel", ""),
@@ -268,11 +247,8 @@ class Gemini:
                 continue
             try:
                 self._wait_video_slot()
-                result = self._call_video(model, prompt, video_url, agentic=agentic)
-                logger.info(
-                    "    Gemini 视频直读（%s）使用 %s（%d 字）",
-                    "agentic" if agentic else "static", model, len(result),
-                )
+                result = self._call_video(model, prompt, video_url)
+                logger.info("    Gemini 视频直读使用 %s（%d 字）", model, len(result))
                 return result
             except GeminiError as exc:
                 last_err = exc

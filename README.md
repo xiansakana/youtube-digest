@@ -4,7 +4,7 @@
 
 - 只申请 `youtube.readonly`，不碰 Gmail 收件箱权限
 - 采集：YouTube Data API（订阅 → 上传列表）+ 频道 RSS 兜底
-- 字幕：yt-dlp 自动/人工字幕优先，没有字幕退回标题+简介
+- 字幕：yt-dlp 自动/人工字幕优先；确认无字幕时让 Gemini 直接看视频，仍失败才退回标题+简介
 - 总结：Gemini，输出固定五节结构（核心观点 / 实盘与点位 / 未来判断 / 板块个股 / 风险提示）
 - 发信：Gmail SMTP + 应用专用密码
 - 去重：已发过的视频永久跳过，不重复总结
@@ -20,7 +20,7 @@
   → 拉取订阅频道
   → 每个频道的最近视频（上传列表 + RSS，取并集）
   → 过滤到最近 24 小时、去重
-  → yt-dlp 取字幕（失败则用标题+简介）
+  → yt-dlp 取字幕；确认无字幕时让 Gemini 直接看视频，失败才用标题+简介
   → Gemini 写五节中文摘要（模型链自动回退）
   → HTML 邮件经 Gmail SMTP 发出
   → 记录已发送 videoId
@@ -169,11 +169,9 @@ docker compose run --rm digest python run.py --days 7
 | `SEND_HOUR` / `SEND_MINUTE` | 12 / 0 | 每天执行时刻 |
 | `RUN_ON_START` | false | 容器启动立即跑一次 |
 | `YOUTUBE_PROXY` | 空 | 抓字幕用的代理（见下节） |
-| `ENABLE_TRANSCRIBE` | true | 无字幕时是否本地语音转写 |
-| `TRANSCRIBE_MODEL` | small | faster-whisper 模型（tiny/base/small/medium） |
-| `TRANSCRIBE_LANGUAGE` | zh | 转写语言 |
-| `TRANSCRIBE_MAX_MINUTES` | 90 | 超过该时长的视频跳过转写 |
-| `WHISPER_MODEL_DIR` | /data/models/whisper | 模型缓存目录（挂载卷） |
+| `ENABLE_VIDEO_SUMMARY` | true | 无字幕时是否让 Gemini 直接读视频 |
+| `VIDEO_SUMMARY_MAX_MINUTES` | 120 | 超过该时长的视频不做直读 |
+| `VIDEO_REQUEST_INTERVAL_SECONDS` | 60 | 视频直读请求之间的最小间隔 |
 
 也可以把配置写进 `data/config.json`，环境变量优先级更高。
 
@@ -221,23 +219,24 @@ YouTube 会直接拒绝云厂商 IP（AWS / GCP / Azure）的字幕请求，表�
 
 没有代理时任务不会失败，只是无字幕的视频会退回标题+简介。
 
-## 无字幕自动转写（默认开启）
+## 无字幕视频直读（默认开启）
 
-只有**确认视频确实没有字幕**时才会触发；有字幕的视频完全不会多跑一步。
+只有**确认视频确实没有字幕**时才触发；有字幕的视频完全不会多跑一步。
 
 流程：
 
-1. yt-dlp 下载音频并转成 16k 单声道 wav
-2. faster-whisper（默认 `small`，CPU int8）本地转写
-3. 转写文本作为摘要输入，邮件卡片顶部会标注「自动转写，数字可能有误」
+1. 无字幕 → 把 YouTube 链接直接交给 Gemini，让模型观看后总结（无需下载音频、无需本地转写）
+2. 按模型顺序尝试：`gemini-4-hydrogen → gemini-3-flash-preview → gemini-3.5-flash-lite`
+3. 全部失败 → 退回标题 + 简介
 
 要点：
 
-- 模型文件放在 `data/models/whisper`（挂载卷内），**首次使用时自动下载，不打进镜像**
-- 超长视频默认跳过（`TRANSCRIBE_MAX_MINUTES=90`）
-- 40 分钟视频在 4 核 CPU 上大约 5–15 分钟；`tiny/base` 更快，`medium` 更准
-- 抓字幕失败（网络/风控）不会触发转写，只有「明确没有字幕」才会
-- 关闭：`ENABLE_TRANSCRIBE=false`
+- 视频直读请求**串行执行**，两次之间至少间隔 `VIDEO_REQUEST_INTERVAL_SECONDS`（默认 60 秒），避免 5 万 token 级别的请求撞 TPM
+- 字幕请求不受该间隔限制，但整体仍是单线程串行，不会并发
+- 超过 `VIDEO_SUMMARY_MAX_MINUTES`（默认 120 分钟）的视频直接退回标题+简介
+- 邮件里这类卡片会带「视频直读」标签
+- 实测参考：9 分钟无字幕视频约 10 秒、5.2 万 token，内容质量优于本地语音转写
+- 关闭：`ENABLE_VIDEO_SUMMARY=false`
 
 ## 数据目录
 
@@ -330,7 +329,7 @@ youtube-digest/
 │       ├── youtube.py       # YouTube Data API + token 刷新
 │       ├── rss.py           # 频道 RSS 兜底
 │       ├── subtitles.py     # yt-dlp 字幕抓取与清洗
-│       ├── gemini.py        # Gemini 总结与模型回退
+│       ├── gemini.py        # Gemini 总结、视频直读与模型回退
 │       ├── render.py        # HTML 邮件模板
 │       ├── mailer.py        # Gmail SMTP
 │       ├── store.py         # 去重与额度状态
