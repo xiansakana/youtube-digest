@@ -13,7 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from .config import COOKIES_PATH
+from .config import COOKIES_PATH, WORK_DIR
 from .subtitles import _detect_proxy, impersonate_args
 
 MODEL_DIR = Path(os.environ.get("WHISPER_MODEL_DIR", "/data/models/whisper"))
@@ -107,6 +107,12 @@ def transcribe_video(
             result = result[:max_chars].strip()
             if len(result) < 40:
                 return None
+            # 落盘一份转写原文，便于排查与人工核对
+            try:
+                WORK_DIR.mkdir(parents=True, exist_ok=True)
+                (WORK_DIR / f"transcript-{video_id}.txt").write_text(result, encoding="utf-8")
+            except OSError:
+                pass
             duration = getattr(info, "duration", 0) or 0
             print(
                 f"[transcribe] {video_id} 用时 {time.time() - started:.1f}s，"
