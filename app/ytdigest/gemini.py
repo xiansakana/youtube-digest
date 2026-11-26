@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 from typing import Any
 
@@ -120,6 +121,7 @@ class Gemini:
         api_key: str,
         models: list[str] | str = "gemini-3.5-flash-lite",
         disabled: set[str] | None = None,
+        video_interval: float = 60.0,
     ) -> None:
         self.api_key = api_key
         if isinstance(models, str):
@@ -132,6 +134,24 @@ class Gemini:
         self._fail_count: dict[str, int] = {m: 0 for m in self.models}
         # 当天已确认额度耗尽的模型，启动时就跳过，不再白发请求
         self._disabled: set[str] = set(disabled or ())
+        # 视频直读请求的串行节流：两次请求之间至少间隔 video_interval 秒
+        self._video_interval = max(0.0, float(video_interval))
+        self._video_last = 0.0
+        self._video_lock = threading.Lock()
+
+    def _wait_video_slot(self) -> None:
+        if self._video_interval <= 0:
+            return
+        with self._video_lock:
+            now = time.monotonic()
+            gap = self._video_interval - (now - self._video_last)
+            if gap > 0:
+                logger.info(
+                    "    视频请求节流：等待 %.0f 秒（最小间隔 %s 秒）",
+                    gap, int(self._video_interval),
+                )
+                time.sleep(gap)
+            self._video_last = time.monotonic()
 
     def disabled_models(self) -> set[str]:
         return set(self._disabled)
@@ -226,6 +246,7 @@ class Gemini:
             if model in self._disabled:
                 continue
             try:
+                self._wait_video_slot()
                 result = self._call_video(model, prompt, video_url)
                 logger.info("    Gemini 视频直读使用 %s（%d 字）", model, len(result))
                 return result

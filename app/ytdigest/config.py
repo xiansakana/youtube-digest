@@ -57,6 +57,8 @@ DEFAULTS: dict[str, Any] = {
     # 无字幕时优先让 Gemini 直接读视频（快，但 token 消耗大）
     "enable_video_summary": True,
     "video_summary_max_minutes": 120,
+    # 视频直读请求之间的最小间隔（秒），避免 5 万 token 级别的请求撞 TPM
+    "video_request_interval_seconds": 60,
 }
 
 SECRET_KEYS = (
@@ -98,6 +100,7 @@ ENV_MAP: list[tuple[str, str, Any]] = [
     ("TRANSCRIBE_MAX_MINUTES", "transcribe_max_minutes", int),
     ("ENABLE_VIDEO_SUMMARY", "enable_video_summary", _as_bool),
     ("VIDEO_SUMMARY_MAX_MINUTES", "video_summary_max_minutes", int),
+    ("VIDEO_REQUEST_INTERVAL_SECONDS", "video_request_interval_seconds", int),
 ]
 
 

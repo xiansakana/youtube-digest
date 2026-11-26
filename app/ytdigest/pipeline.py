@@ -252,7 +252,12 @@ def run(
         m for m in cfg.get("gemini_fallback_models", []) if m and m != cfg["gemini_model"]
     ]
     quota_disabled = load_quota()
-    gemini = Gemini(env["GEMINI_API_KEY"], gemini_models, disabled=quota_disabled)
+    gemini = Gemini(
+        env["GEMINI_API_KEY"],
+        gemini_models,
+        disabled=quota_disabled,
+        video_interval=cfg.get("video_request_interval_seconds", 60),
+    )
     if quota_disabled:
         logger.info("今日已耗尽额度的模型（直接跳过）: %s", ", ".join(sorted(quota_disabled)))
     logger.info("Gemini 模型链: %s", " -> ".join(gemini_models))
