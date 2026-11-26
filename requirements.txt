@@ -3,3 +3,5 @@ yt-dlp>=2024.8.6
 flask>=3.0.0
 faster-whisper>=1.0.0
 curl_cffi>=0.7.0
+# huggingface-hub 2.x 与 faster-whisper 1.2.x 存在 API 不兼容（metadata_errors）
+huggingface-hub<1.0
